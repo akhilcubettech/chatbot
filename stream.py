@@ -68,9 +68,9 @@ def main():
 
     for message in st.session_state.messages:
         if message["role"] == "user":
-            st.text_area("You:", value=message["content"], height=50, key=message["content"], disabled=True)
+            st.text_area("You:", value=message["content"], key=message["content"], disabled=True)
         else:
-            st.text_area("Bot:", value=message["content"], height=50, key=message["content"], disabled=True)
+            st.text_area("Bot:", value=message["content"], key=message["content"], disabled=True)
 
     user_input = st.text_input("Type your message:", "")
 
