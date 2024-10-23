@@ -68,29 +68,21 @@ def main():
     model = st.selectbox("Choose a Bot", ["gpt-3.5-turbo", "gpt-4"])
 
     for message in st.session_state.messages:
-        if message["role"] == "user":
-            st.text(f'You: {message["content"]}')
-            # st.text_area'("You:", value=message["content"], key=uid, disabled=True)
-        else:
-            st.text(f'Bot: {message["content"]}')
-            # st.text_area("Bot:", value=message["content"], key=uid, disabled=True)
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    user_input = st.text_input("Type your message:", "")
+    if prompt := st.chat_input("What is up?"):
 
-    if st.button("Send"):
-        if user_input:
+        st.chat_message("user").markdown(prompt)
 
-            st.session_state.messages.append({"role": "user", "content": user_input})
+        st.session_state.messages.append({"role": "user", "content": prompt})
 
-            response = query_chatbot(st.session_state.messages, model)
+        response = query_chatbot(st.session_state.messages, model)
 
+        with st.chat_message("assistant"):
+            st.markdown(response)
 
-            st.session_state.messages.append({"role": "assistant", "content": response})
-
-
-
-
-            st.rerun()
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 if __name__ == "__main__":
