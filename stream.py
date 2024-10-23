@@ -75,7 +75,7 @@ def main():
             st.text(f'Bot: {message["content"]}')
             # st.text_area("Bot:", value=message["content"], key=uid, disabled=True)
 
-    user_input = st.text_input("Type your message:", "", key="user_input")
+    user_input = st.text_input("Type your message:", "")
 
     if st.button("Send"):
         if user_input:
@@ -87,7 +87,7 @@ def main():
 
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-            st.session_state.user_input = ""
+
 
 
             st.rerun()
