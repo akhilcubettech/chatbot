@@ -75,7 +75,7 @@ def main():
             st.text(f'Bot: {message["content"]}')
             # st.text_area("Bot:", value=message["content"], key=uid, disabled=True)
 
-    user_input = st.text_input("Type your message:", "")
+    user_input = st.text_input("Type your message:", "", key="user_input")
 
     if st.button("Send"):
         if user_input:
