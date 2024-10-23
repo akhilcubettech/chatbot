@@ -87,6 +87,7 @@ def main():
 
             st.session_state.messages.append({"role": "assistant", "content": response})
 
+            user_input = ""
 
             st.rerun()
 
