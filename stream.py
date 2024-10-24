@@ -1,43 +1,36 @@
-from http.client import responses
-
 import streamlit as st
-import requests
 import os
 from openai import OpenAI
-from uuid import uuid4 as uid
+from dotenv import load_dotenv
+from openai import AssistantEventHandler
+from typing_extensions import override
 
+load_dotenv()
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-API_URL = "https://api.openai.com/v1/assistants/chat"
-API_KEY = os.getenv("OPENAI_API_KEY")
+# EventHandler to handle the streaming response
+class StreamlitEventHandler(AssistantEventHandler):
+    def __init__(self, message_placeholder):
+        super().__init__()
+        self.message_placeholder = message_placeholder
+        self.full_text = ""
 
-
-# def query_chatbot(messages, model):
-#     headers = {
-#         "Authorization": f"Bearer {API_KEY}",
-#         "OpenAI-Beta": "assistants=v2",
-#         "Content-Type": "application/json"
-#     }
-#     data = {
-#         "model": model,
-#         "messages": messages
-#     }
-#     response = requests.post(API_URL, headers=headers, json=data)
-#
-#     if response.status_code != 200:
-#         return "Error: " + response.text
-#
-#     return response.json()['choices'][0]['message']['content']
-
+    @override
+    def on_text_delta(self, delta, snapshot):
+        self.full_text += delta.value
+        self.message_placeholder.markdown(self.full_text)
 
 def main():
-    st.title("Chatbot Interface")
+    st.title("Chat with Assistants")
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    model = st.selectbox("Choose a Bot", ["gpt-3.5-turbo", "gpt-4", "asst_IDB3oop3AS2Aoe5dZsjlvsak"])
+    model = st.selectbox("Choose an Assistant", [
+        "asst_IDB3oop3AS2Aoe5dZsjlvsak",
+        "asst_xMMUIRQFfQmZCI30ifkvkGHf"
+    ])
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -48,30 +41,27 @@ def main():
 
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # response = query_chatbot(st.session_state.messages, model)
         thread = client.beta.threads.create()
         message = client.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
-            content=str(prompt)
+            content=prompt
         )
-        run = client.beta.threads.runs.create_and_poll(
-            thread_id=thread.id,
-            assistant_id=model,
-        )
-        response = None
-        if run.status == 'completed':
-            response = client.beta.threads.messages.list(
-                thread_id=thread.id
-            )
-
-        else:
-            response=run.status
 
         with st.chat_message("assistant"):
-            st.markdown(response)
+            message_placeholder = st.empty()  # Placeholder for streaming updates
 
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            # Stream the assistant response
+            event_handler = StreamlitEventHandler(message_placeholder)
+            with client.beta.threads.runs.stream(
+                thread_id=thread.id,
+                assistant_id=model,  # Use the selected assistant
+                event_handler=event_handler,
+            ) as stream:
+                stream.until_done()
+
+        # Save the full assistant response
+        st.session_state.messages.append({"role": "assistant", "content": event_handler.full_text})
 
 
 if __name__ == "__main__":
