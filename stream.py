@@ -21,35 +21,27 @@ class StreamlitEventHandler(AssistantEventHandler):
 
     @override
     def on_event(self, event):
-
         if event.event == 'thread.run.requires_action':
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id, self.message_placeholder)
 
     def handle_requires_action(self, data, run_id, message_placeholder):
         tool_outputs = []
-
         for tool in data.required_action.submit_tool_outputs.tool_calls:
-
             arguments = json.loads(tool.function.arguments)
-
             if tool.function.name == "get_humantic_profile":
                 linkedin_url = arguments.get("linkedin_url")
                 if linkedin_url:
                     profile_data = get_humantic_profile(linkedin_url)
                     profile_data_str = json.dumps(profile_data)
-
                     tool_outputs.append({"tool_call_id": tool.id, "output": profile_data_str})
+        self.submit_tool_outputs(tool_outputs, run_id)
 
-        new_event_handler = StreamlitEventHandler(message_placeholder)
-        self.submit_tool_outputs(new_event_handler, tool_outputs, run_id)
-
-    def submit_tool_outputs(self, event_handler, tool_outputs, run_id):
+    def submit_tool_outputs(self, tool_outputs, run_id):
         with client.beta.threads.runs.submit_tool_outputs_stream(
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
             tool_outputs=tool_outputs,
-            event_handler=event_handler,
         ) as stream:
             for text in stream.text_deltas:
                 self.full_text += text
@@ -57,14 +49,12 @@ class StreamlitEventHandler(AssistantEventHandler):
 
 
 def get_humantic_profile(linkedin_url):
-    print(h_key)
-    headers = {
-        'Content-Type': 'application/json'
-    }
+    headers = {'Content-Type': 'application/json'}
     response = requests.get(f"https://api.humantic.ai/v1/user-profile?apikey={h_key}&id={linkedin_url}", headers=headers)
     if response.status_code == 200:
         return response.json()
     else:
+        st.error("Failed to retrieve Humantic profile.")
         return None
 
 
@@ -73,6 +63,8 @@ def main():
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
+    if "thread_id" not in st.session_state:
+        st.session_state.thread_id = None
 
     assistant_options = {
         "LinkedIn Persona Analyzer": "asst_IDB3oop3AS2Aoe5dZsjlvsak",
@@ -95,7 +87,11 @@ def main():
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        thread = client.beta.threads.create()
+        if not st.session_state.thread_id:
+            thread = client.beta.threads.create()
+            st.session_state.thread_id = thread.id
+        else:
+            thread = client.beta.threads.retrieve(st.session_state.thread_id)
 
         data = None
         if assistant_name == "Persona Mailer" and csv_file is not None:
@@ -107,13 +103,8 @@ def main():
                 file=open(temp_file_path, "rb"),
                 purpose='assistants'
             )
+            data = [{"file_id": file.id, "tools": [{"type": "code_interpreter"}]}]
 
-            data = [
-                {
-                    "file_id": file.id,
-                    "tools": [{"type": "code_interpreter"}]
-                }
-            ]
 
         message = client.beta.threads.messages.create(
             thread_id=thread.id,
@@ -134,6 +125,7 @@ def main():
                 stream.until_done()
 
         st.session_state.messages.append({"role": "assistant", "content": event_handler.full_text})
+        os.remove(temp_file_path)
 
 
 if __name__ == "__main__":
