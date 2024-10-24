@@ -4,7 +4,7 @@ import requests
 import os
 from uuid import uuid4 as uid
 
-API_URL = "https://api.openai.com/v1/assistants"
+API_URL = "https://api.openai.com/v1/assistants/chat"
 API_KEY = os.getenv("OPENAI_API_KEY")
 
 
